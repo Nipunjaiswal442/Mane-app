@@ -1,0 +1,14 @@
+# Build and verify on the target NVIDIA appliance architecture before export.
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
+COPY --from=ghcr.io/astral-sh/uv:0.12.7 /uv /uvx /bin/
+ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1
+RUN apt-get update && apt-get install -y --no-install-recommends python3.12 python3.12-venv ffmpeg ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY services/doc-worker /app/services/doc-worker
+COPY packages/shared/minutes.schema.json /app/packages/shared/minutes.schema.json
+RUN uv sync --project /app/services/doc-worker --frozen --extra cuda --extra diarization --no-dev --no-editable --python /usr/bin/python3.12
+ENV PATH=/app/services/doc-worker/.venv/bin:$PATH HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYANNOTE_METRICS_ENABLED=0
+ENV MINUTES_SCHEMA_PATH=/app/packages/shared/minutes.schema.json MINUTES_TEMPLATE_PATH=/app/services/doc-worker/templates/minutes.docx
+RUN useradd --uid 10001 --create-home worker
+USER worker
+CMD ["python", "-m", "uvicorn", "mane_worker.app:app", "--host", "0.0.0.0", "--port", "5000"]

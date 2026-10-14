@@ -1,0 +1,16 @@
+pnpm-lock.yaml
+services/
+data/
+.next/
+out/
+node_modules/
+test-results/
+playwright-report/
+*.svg
+*.md
+*.sh
+*.py
+*.toml
+Makefile
+
+models/

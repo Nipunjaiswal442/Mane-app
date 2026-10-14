@@ -1,0 +1,69 @@
+name: Mane checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: mane_test
+          POSTGRES_USER: mane
+          POSTGRES_PASSWORD: mane_test_only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U mane -d mane_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_TEST_URL: postgres://mane:mane_test_only@127.0.0.1:5432/mane_test
+      DATABASE_URL: postgres://mane:mane_test_only@127.0.0.1:5432/mane_test
+      WORKER_TOKEN: ci-only-worker-token-with-more-than-32-characters
+      NEXT_TELEMETRY_DISABLED: '1'
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - name: Install locked workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Prepare CPU-only worker tests
+        run: uv sync --project services/doc-worker --frozen --extra test
+      - name: Typecheck and format
+        run: make check
+      - name: Unit and PostgreSQL integration tests
+        run: make test
+      - name: Isolated backup and restore drill
+        run: make test-operations
+      - name: Landing and production web build
+        run: pnpm landing && pnpm build
+      - name: Browser runtime
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Browser acceptance
+        run: pnpm test:e2e
+      - name: Upload browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore

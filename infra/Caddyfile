@@ -1,0 +1,16 @@
+{
+  auto_https disable_redirects
+  admin off
+}
+{$MANE_HOST} {
+  tls /etc/mane/tls/tls.crt /etc/mane/tls/tls.key
+  handle_path /api/* {
+    reverse_proxy api:4000
+  }
+  handle /socket.io/* {
+    reverse_proxy api:4000
+  }
+  handle {
+    reverse_proxy web:3000
+  }
+}

@@ -1,0 +1,164 @@
+# Offline reference deployment. Provision images, models and secrets first.
+# Every image is supplied explicitly; use digests in the release manifest.
+name: mane
+x-common: &common
+  restart: unless-stopped
+  pull_policy: never
+  networks: [appliance]
+  security_opt: [no-new-privileges:true]
+x-app-env: &app-env
+  DATABASE_URL: ${DATABASE_URL:?Set the internal PostgreSQL connection string}
+  WORKER_TOKEN: ${WORKER_TOKEN:?Set a randomly generated worker token}
+  STORAGE_BACKEND: s3
+  S3_ENDPOINT: http://minio:9000
+  S3_BUCKET: mane
+  S3_REGION: us-east-1
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Set the local object-storage access key}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?Set the local object-storage secret key}
+  APPLIANCE_HOSTS: postgres,api,worker,vllm,minio,web
+  INTERNAL_HOSTS: postgres,api,worker,vllm,minio,web
+services:
+  postgres:
+    <<: *common
+    image: ${POSTGRES_IMAGE:?Set a tested postgres:16 image digest}
+    environment:
+      POSTGRES_USER: mane
+      POSTGRES_DB: mane
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a random database password}
+    volumes: ['postgres:/var/lib/postgresql/data']
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U mane -d mane']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  api:
+    <<: *common
+    image: ${MANE_NODE_IMAGE:?Set the locally loaded Mane Node image}
+    command: [pnpm, --filter, api, start]
+    environment:
+      <<: *app-env
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 4000
+      CSRF_ORIGIN: ${MANE_ORIGIN:?Set the HTTPS appliance origin}
+      COOKIE_SECURE: 'true'
+      AUTH_PROVIDER: local
+      LICENSE_PUBLIC_KEY: ${LICENSE_PUBLIC_KEY:?Set the trusted license public key}
+    depends_on:
+      postgres: { condition: service_healthy }
+      minio: { condition: service_started }
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 4s
+      retries: 5
+  web:
+    <<: *common
+    image: ${MANE_NODE_IMAGE:?Set the locally loaded Mane Node image}
+    command: [pnpm, --filter, web, start]
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: '1'
+      API_URL: http://api:4000
+      NEXT_PUBLIC_API_URL: /api
+    depends_on: [api]
+  worker:
+    <<: *common
+    image: ${MANE_WORKER_IMAGE:?Set the locally loaded CUDA worker image}
+    environment:
+      <<: *app-env
+      API_URL: http://api:4000
+      STT_BACKEND: faster_whisper
+      STT_MODEL_PATH: /models/whisper-large-v3
+      LLM_BACKEND: vllm
+      VLLM_URL: http://vllm:8000/v1
+      LLM_MODEL: mane-local
+      LLM_CONTEXT_TOKENS: ${LLM_CONTEXT_TOKENS:-16384}
+      DIARIZE: ${DIARIZE:-off}
+      DIARIZATION_MODEL_PATH: /models/diarization/config.yaml
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+      PYANNOTE_METRICS_ENABLED: '0'
+    volumes: ['${MODEL_DIR:?Set the absolute local model directory}:/models:ro']
+    depends_on: [api, vllm]
+    deploy:
+      resources:
+        reservations:
+          devices: [{ driver: nvidia, count: 1, capabilities: [gpu] }]
+    healthcheck:
+      test:
+        [
+          CMD,
+          python,
+          -c,
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)",
+        ]
+      interval: 15s
+      timeout: 4s
+      retries: 5
+  vllm:
+    <<: *common
+    image: ${VLLM_IMAGE:?Set a tested locally loaded vLLM image digest}
+    command:
+      [
+        --model,
+        /models/llm,
+        --served-model-name,
+        mane-local,
+        --host,
+        0.0.0.0,
+        --port,
+        '8000',
+        --max-model-len,
+        '${LLM_CONTEXT_TOKENS:-16384}',
+        --gpu-memory-utilization,
+        '0.55',
+        --max-num-seqs,
+        '1',
+        --enforce-eager,
+      ]
+    environment:
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+      VLLM_NO_USAGE_STATS: '1'
+      DO_NOT_TRACK: '1'
+    volumes: ['${MODEL_DIR:?Set the absolute local model directory}:/models:ro']
+    shm_size: 2gb
+    deploy:
+      resources:
+        reservations:
+          devices: [{ driver: nvidia, count: 1, capabilities: [gpu] }]
+  minio:
+    <<: *common
+    image: ${MINIO_IMAGE:?Set a tested locally loaded MinIO image digest}
+    command: [server, /data, --console-address, ':9001']
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+      MINIO_BROWSER: 'off'
+      MINIO_UPDATE: 'off'
+    volumes: ['objects:/data']
+  caddy:
+    <<: *common
+    image: ${CADDY_IMAGE:?Set a tested locally loaded Caddy image digest}
+    ports: ['443:443']
+    environment:
+      MANE_HOST: ${MANE_HOST:?Set the appliance DNS hostname}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${TLS_DIR:?Set the directory with tls.crt and tls.key}:/etc/mane/tls:ro
+      - caddy:/data
+    depends_on: [web, api]
+networks:
+  appliance:
+    internal: true
+volumes:
+  postgres:
+  objects:
+  caddy:
