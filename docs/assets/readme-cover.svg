@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="660" viewBox="0 0 1440 660" role="img" aria-labelledby="title desc">
+  <title id="title">Mane — Same people. Deeper work.</title>
+  <desc id="desc">Private collaboration and local AI meeting minutes. Your network. Your people. Your knowledge.</desc>
+  <rect width="1440" height="660" fill="#eeeee6"/>
+  <g fill="none" stroke="#191c16" stroke-width="2">
+    <rect x="24" y="24" width="1392" height="612"/>
+    <path d="M24 116H1416M24 554H1416M1002 116V554M24 636H1416"/>
+  </g>
+  <g fill="#191c16">
+    <text x="56" y="87" font-family="Arial,Helvetica,sans-serif" font-size="58" font-weight="900" letter-spacing="-4">Mane</text>
+    <circle cx="237" cy="70" r="5"/>
+    <text x="275" y="77" font-family="monospace" font-size="16" letter-spacing="2">STAYS INSIDE YOUR NETWORK.</text>
+    <text x="1380" y="77" text-anchor="end" font-family="monospace" font-size="15" letter-spacing="2">CHAT + DOC / V0.1</text>
+    <text x="58" y="170" font-family="monospace" font-size="14" letter-spacing="3">A PRIVATE SPACE FOR PEOPLE AND KNOWLEDGE</text>
+    <g font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="112" letter-spacing="-6">
+      <text x="50" y="294" textLength="894" lengthAdjust="spacingAndGlyphs">SAME PEOPLE.</text>
+      <text x="50" y="414" textLength="894" lengthAdjust="spacingAndGlyphs">DEEPER WORK.</text>
+    </g>
+    <text x="58" y="480" font-family="monospace" font-size="21">Conversations that stay close.</text>
+    <text x="58" y="514" font-family="monospace" font-size="21">Meeting minutes that move work forward.</text>
+  </g>
+  <rect x="1003" y="117" width="412" height="437" fill="#191c16"/>
+  <g fill="none" stroke="#dff582" stroke-width="2">
+    <path d="M1053 163H1365V365H1053Z M1081 191H1337V337H1081Z M1109 219H1309V309H1109Z"/>
+    <path d="M1053 163L1109 219M1365 163L1309 219M1053 365L1109 309M1365 365L1309 309"/>
+    <path d="M1188 309V244H1229V309"/>
+  </g>
+  <path d="M1188 244H1229V309H1188Z" fill="#dff582"/>
+  <g fill="#eeeee6" font-family="monospace" font-size="22" letter-spacing="1">
+    <text x="1053" y="428">YOUR NETWORK.</text>
+    <text x="1053" y="464">YOUR PEOPLE.</text>
+    <text x="1053" y="500">YOUR KNOWLEDGE.</text>
+  </g>
+  <rect x="25" y="555" width="1390" height="80" fill="#dff582"/>
+  <g fill="#191c16" font-family="monospace" font-size="17" font-weight="bold" letter-spacing="1">
+    <text x="58" y="603">01 / PRIVATE COLLABORATION</text>
+    <text x="543" y="603">02 / LOCAL AI MINUTES</text>
+    <text x="1023" y="603">03 / HUMAN APPROVAL</text>
+  </g>
+</svg>
